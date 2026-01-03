@@ -519,6 +519,13 @@ async function renderTasks(container) {
         <input id="task-target" type="text" placeholder="示例：example.com, 1.2.3.4/24">
       </div>
       <div class="form-group">
+        <label>扫描深度</label>
+        <select id="task-depth">
+          <option value="deep">深度</option>
+          <option value="standard">标准</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label>域名爆破</label>
         <select id="task-domain-brute">
           <option value="true">启用</option>
@@ -669,6 +676,70 @@ async function renderTasks(container) {
       <button class="primary-button" id="task-submit">提交任务</button>
     </div>
   `;
+
+  const depthSelect = qs("#task-depth");
+  const presetKeys = [
+    "task-domain-brute",
+    "task-domain-brute-type",
+    "task-port-scan",
+    "task-port-scan-type",
+    "task-site-identify",
+    "task-site-capture",
+    "task-search-engines",
+    "task-site-spider",
+    "task-arl-search",
+    "task-alt-dns",
+    "task-service-detection",
+    "task-os-detection",
+    "task-file-leak",
+    "task-ssl-cert",
+    "task-dns-query",
+    "task-skip-cdn",
+    "task-nuclei",
+    "task-findvhost",
+    "task-wih",
+  ];
+  const presetDefault = presetKeys.reduce((acc, id) => {
+    const el = qs(`#${id}`);
+    if (el) {
+      acc[id] = el.value;
+    }
+    return acc;
+  }, {});
+  const presetDeep = {
+    "task-domain-brute": "true",
+    "task-domain-brute-type": "big",
+    "task-port-scan": "true",
+    "task-port-scan-type": "top1000",
+    "task-site-identify": "true",
+    "task-site-capture": "true",
+    "task-search-engines": "true",
+    "task-site-spider": "true",
+    "task-arl-search": "true",
+    "task-alt-dns": "true",
+    "task-service-detection": "true",
+    "task-os-detection": "true",
+    "task-file-leak": "true",
+    "task-ssl-cert": "true",
+    "task-dns-query": "true",
+    "task-skip-cdn": "false",
+    "task-nuclei": "true",
+    "task-findvhost": "true",
+    "task-wih": "true",
+  };
+  const applyTaskPreset = (preset) => {
+    const config = preset === "deep" ? presetDeep : presetDefault;
+    Object.entries(config).forEach(([id, value]) => {
+      const el = qs(`#${id}`);
+      if (el && el.value !== value) {
+        el.value = value;
+      }
+    });
+  };
+  if (depthSelect) {
+    depthSelect.addEventListener("change", () => applyTaskPreset(depthSelect.value));
+    applyTaskPreset(depthSelect.value);
+  }
 
   createBody.querySelector("#task-submit").addEventListener("click", async () => {
     const payload = {
@@ -852,7 +923,7 @@ async function renderTasks(container) {
       {
         label: "删除",
         className: "danger-button",
-        onClick: (item) => apiPost("task/delete/", { task_id: [item._id], del_task_data: false }).then(() => {
+        onClick: (item) => apiPost("task/delete/", { task_id: [item._id], del_task_data: true }).then(() => {
           toast("任务已删除。", "success");
           loadTasks();
         }),
@@ -1471,8 +1542,102 @@ async function renderPolicies(container) {
       <label>策略 JSON</label>
       <textarea id="policy-json" placeholder='{"name":"策略名称","desc":"","policy":{}}'></textarea>
     </div>
-    <button class="primary-button" id="policy-submit" type="button">创建策略</button>
+    <div class="flex-row">
+      <button class="secondary-button" id="policy-generate-vuln" type="button">生成漏洞策略</button>
+      <button class="ghost-button" id="policy-sync-poc" type="button">同步插件</button>
+      <button class="primary-button" id="policy-submit" type="button">创建策略</button>
+    </div>
   `;
+
+  const policyJsonEl = qs("#policy-json");
+  const policySyncBtn = qs("#policy-sync-poc");
+  const policyGenerateBtn = qs("#policy-generate-vuln");
+
+  const syncPocPlugins = async () => {
+    await apiGet("poc/sync/");
+  };
+
+  const buildVulnPolicyPayload = async () => {
+    const [pocResp, bruteResp] = await Promise.all([
+      apiGet("poc/", { plugin_type: "poc", page: 1, size: 10000 }),
+      apiGet("poc/", { plugin_type: "brute", page: 1, size: 10000 }),
+    ]);
+    const pocItems = normalizeListResponse(pocResp).items;
+    const bruteItems = normalizeListResponse(bruteResp).items;
+    if (!pocItems.length && !bruteItems.length) {
+      throw new Error("\u672a\u53d1\u73b0\u53ef\u7528\u63d2\u4ef6\uff0c\u8bf7\u5148\u540c\u6b65\u63d2\u4ef6");
+    }
+    const now = new Date();
+    const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    return {
+      name: `\u6f0f\u6d1e\u6df1\u5ea6\u7b56\u7565-${stamp}`,
+      desc: "\u81ea\u52a8\u751f\u6210\uff1a\u5168\u91cf PoC/\u5f31\u53e3\u4ee4 + \u6df1\u5ea6\u626b\u63cf",
+      policy: {
+        domain_config: {
+          domain_brute: true,
+          domain_brute_type: "big",
+          alt_dns: true,
+          arl_search: true,
+          dns_query_plugin: true,
+        },
+        ip_config: {
+          port_scan: true,
+          port_scan_type: "top1000",
+          service_detection: true,
+          os_detection: true,
+          ssl_cert: true,
+          skip_scan_cdn_ip: false,
+        },
+        site_config: {
+          site_identify: true,
+          site_capture: true,
+          search_engines: true,
+          site_spider: true,
+          nuclei_scan: true,
+          web_info_hunter: true,
+        },
+        file_leak: true,
+        npoc_service_detection: true,
+        poc_config: pocItems.map((item) => ({
+          plugin_name: item.plugin_name,
+          enable: true,
+        })),
+        brute_config: bruteItems.map((item) => ({
+          plugin_name: item.plugin_name,
+          enable: true,
+        })),
+        scope_config: {
+          scope_id: "",
+        },
+      },
+    };
+  };
+
+  if (policySyncBtn) {
+    policySyncBtn.addEventListener("click", async () => {
+      try {
+        await syncPocPlugins();
+        toast("\u63d2\u4ef6\u5df2\u540c\u6b65", "success");
+      } catch (err) {
+        toast("\u63d2\u4ef6\u540c\u6b65\u5931\u8d25", "error");
+      }
+    });
+  }
+
+  if (policyGenerateBtn) {
+    policyGenerateBtn.addEventListener("click", async () => {
+      try {
+        await syncPocPlugins();
+        const payload = await buildVulnPolicyPayload();
+        if (policyJsonEl) {
+          policyJsonEl.value = JSON.stringify(payload, null, 2);
+        }
+        toast("\u6f0f\u6d1e\u7b56\u7565\u5df2\u751f\u6210", "success");
+      } catch (err) {
+        toast(err.message || "\u751f\u6210\u6f0f\u6d1e\u7b56\u7565\u5931\u8d25", "error");
+      }
+    });
+  }
 
   addBody.querySelector("#policy-submit").addEventListener("click", async () => {
     const raw = qs("#policy-json").value.trim();

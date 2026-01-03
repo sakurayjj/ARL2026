@@ -188,7 +188,7 @@ def stop_task(task_id):
 
 
 delete_task_fields = ns.model('DeleteTask',  {
-    'del_task_data': fields.Boolean(required=False, default=False, description="是否删除任务数据"),
+    'del_task_data': fields.Boolean(required=False, default=True, description="是否删除任务数据"),
     'task_id': fields.List(fields.String(required=True, description="任务ID"))
 })
 
@@ -434,5 +434,4 @@ class TaskRestart(ARLResource):
             return utils.build_ret(ErrorMsg.Error, {"error": str(e)})
 
         return utils.build_ret(ErrorMsg.Success, {"task_id": task_id_list})
-
 

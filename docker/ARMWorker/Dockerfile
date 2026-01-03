@@ -1,10 +1,12 @@
 # syntax=docker/dockerfile:1
-FROM ubuntu:20.04 AS builder
+ARG ARM_BASE_IMAGE=ubuntu:20.04
+FROM ${ARM_BASE_IMAGE} AS builder
+ARG NMAP_VERSION=7.98
 ENV DEBIAN_FRONTEND noninteractive
 WORKDIR /opt/
 RUN set -x;\
     apt-get update \
-    && apt-get install -y g++ make wget  libssl-dev zlib1g-dev git \
+    && apt-get install -y g++ make wget libssl-dev zlib1g-dev git libpcap-dev libpcre3-dev liblua5.3-dev \
     && git clone https://github.com/blechschmidt/massdns.git \
     && cd /opt/massdns \
     && make \
@@ -15,11 +17,19 @@ RUN set -x;\
     && cd ncrack-0.7 \
     && ./configure \
     && make \
-    && /opt/ncrack-0.7/ncrack -V
+    && /opt/ncrack-0.7/ncrack -V \
+    && cd /opt/ \
+    && wget "https://nmap.org/dist/nmap-${NMAP_VERSION}.tar.bz2" \
+    && tar -xjf "nmap-${NMAP_VERSION}.tar.bz2" \
+    && cd "nmap-${NMAP_VERSION}" \
+    && ./configure --prefix=/opt/nmap \
+    && make -j"$(nproc)" \
+    && make install \
+    && /opt/nmap/bin/nmap -v
 
 
 
-FROM ubuntu:20.04
+FROM ${ARM_BASE_IMAGE}
 ENV DEBIAN_FRONTEND noninteractive
 ENV LANG en_US.UTF-8
 
@@ -27,18 +37,22 @@ WORKDIR /code
 
 RUN set -x;\
     apt-get update \
-    && apt-get install -y python3.8 python3-pip curl nginx nmap wget unzip \
+    && apt-get install -y python3.8 python3-pip curl nginx wget unzip ca-certificates \
+    libpcap0.8 libpcre3 liblua5.3-0 libssl1.1 zlib1g \
     && ln -s /usr/bin/python3.8 /usr/bin/python3.6 \
-    && useradd -s /bin/false nginx \
-    && nmap -v
+    && useradd -s /bin/false nginx
 
 COPY app/ app/
 COPY test/ test/
 COPY --from=builder /opt/ncrack-0.7/ncrack /usr/local/bin/ncrack
 COPY --from=builder /opt/ncrack-0.7/ncrack-services /usr/local/share/ncrack/ncrack-services
 COPY --from=builder /opt/massdns/bin/massdns app/tools/massdns
+COPY --from=builder /opt/nmap /opt/nmap
 COPY docker/frontend/ frontend/
 COPY docker/nginx.conf  /etc/nginx/nginx.conf
+
+RUN ln -s /opt/nmap/bin/nmap /usr/local/bin/nmap \
+    && /opt/nmap/bin/nmap -v
 
 ## 复制生成ssl证书文件
 COPY docker/worker/gen_crt.sh /usr/bin/gen_crt.sh
@@ -62,7 +76,7 @@ WORKDIR /opt/ARL-NPoC/
 RUN pip3 install -r requirements.txt
 
 # 定义nuclei版本
-ARG NUCLEI_VERSION=3.2.4
+ARG NUCLEI_VERSION=3.6.2
 
 # 安装nuclei
 RUN wget "https://github.com/projectdiscovery/nuclei/releases/download/v${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_arm64.zip" \

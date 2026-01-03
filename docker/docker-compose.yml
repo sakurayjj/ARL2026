@@ -4,7 +4,10 @@ volumes:
 
 x-arl-build: &arl_build
   context: ..
-  dockerfile: docker/worker/Dockerfile
+  dockerfile: ${ARL_DOCKERFILE:-docker/worker/Dockerfile}
+  args:
+    BASE_IMAGE: ${ARL_BASE_IMAGE:-centos:7}
+    ARM_BASE_IMAGE: ${ARL_ARM_BASE_IMAGE:-ubuntu:20.04}
 
 services:
     frontend:

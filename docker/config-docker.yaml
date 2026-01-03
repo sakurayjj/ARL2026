@@ -31,7 +31,7 @@ QUERY_PLUGIN:
     enable: true
   certspotter: # https://www.certspotter.com/
     after_id: 1
-    max_page: 3
+    max_page: 5
     enable: true
   crtsh:
     enable: true
@@ -41,30 +41,30 @@ QUERY_PLUGIN:
     api_key: ""
     page_size: 100
     max_page: 5
-    enable: false
+    enable: true
   passivetotal: # 请前往 https://community.riskiq.com/ 注册自己的key并替换
     auth_email: ""
     auth_key: ""
-    enable: false
+    enable: true
   quake_360: # 网站 https://quake.360.cn/
     quake_token: ""
     max_size: 500
-    enable: false
+    enable: true
   rapiddns:
     enable: true
   securitytrails: # 网站 https://securitytrails.com/
     api_key: ""
-    enable: false
+    enable: true
   virustotal: # 网站 https://www.virustotal.com/gui/
     api_key: ""
-    enable: false
+    enable: true
   zoomeye:
     api_key: ""
     max_page: 20
-    enable: false
+    enable: true
   chaos:
     api_key: ""
-    enable: false
+    enable: true
 
 
 #*** 监控任务消息推送配置 ****
@@ -128,10 +128,10 @@ ARL:
     #- 10.0.0.0/8
     #- 192.168.0.0/16
   ## 禁止域名，不可为空数组
-  FORBIDDEN_DOMAINS:
-    - edu.cn
-    - org.cn
-    - gov.cn
+  #FORBIDDEN_DOMAINS:
+    #- edu.cn
+    #- org.cn
+    #- gov.cn
   #端口对应前端测试选项
   PORT_TOP_10: "80,443,8443,8080,8081,8888,8089,5000,5001,8085,800,81,9000,88,8001,8090"
   #域名爆破字典前端大字典选项

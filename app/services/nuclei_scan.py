@@ -1,5 +1,5 @@
 import json
-import os.path
+import os
 import subprocess
 
 from app.config import Config
@@ -23,6 +23,9 @@ class NucleiScan(object):
                                                "nuclei_result_{}.json".format(rand_str))
 
         self.nuclei_bin_path = "nuclei"
+        self.nuclei_tags = os.environ.get("NUCLEI_TAGS", "").strip()
+        self.nuclei_severity = os.environ.get("NUCLEI_SEVERITY", "info,low,medium,high,critical").strip()
+        self.nuclei_type = os.environ.get("NUCLEI_TYPE", "http").strip()
 
         # 在nuclei 2.9.1 中 将-json 参数改成了 -jsonl 参数。
         self.nuclei_json_flag = None
@@ -92,15 +95,17 @@ class NucleiScan(object):
         self._gen_target_file()
 
         command = [self.nuclei_bin_path, "-duc",
-                   "-tags cve",
-                   "-severity low,medium,high,critical",
-                   "-type http",
+                   "-severity", self.nuclei_severity,
                    "-l {}".format(self.nuclei_target_path),
                    self.nuclei_json_flag,  # 在nuclei 2.9.1 中 将 -json 参数改成了 -jsonl 参数
                    "-stats",
                    "-stats-interval 60",
                    "-o {}".format(self.nuclei_result_path),
                    ]
+        if self.nuclei_tags:
+            command.extend(["-tags", self.nuclei_tags])
+        if self.nuclei_type and self.nuclei_type.lower() != "all":
+            command.extend(["-type", self.nuclei_type])
 
         logger.info(" ".join(command))
         utils.exec_system(command, timeout=96*60*60)
@@ -128,4 +133,3 @@ def nuclei_scan(targets: list):
 
     n = NucleiScan(targets=targets)
     return n.run()
-
